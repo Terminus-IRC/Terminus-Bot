@@ -54,3 +54,11 @@ def time_ago_in_words(dur)
   return duration_in_words(dur) + " ago"
 end
 
+
+# returns true if the second string matches the wildcard pattern in the
+# first string.
+def wildcard_match(pat, str, wchar="\\*")
+  return true if pat == "*"
+  esc = Regexp.escape(pat).gsub("#{wchar}", ".*?")
+  return !!(str =~ Regexp.new("^#{esc}$"))
+end
