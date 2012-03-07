@@ -79,7 +79,7 @@ class IRC_Connection < EventMachine::Connection
 
   # Called after the socket is opened.
   def post_init
-    $log.debug("Connection.start_connection") { "Starting connection: #{@host}:#{@port}" }
+    $log.debug("IRC.post_init") { "Starting connection: #{@host}:#{@port}" }
 
     @users = Users.new(self)
     @channels = Hash.new
@@ -90,6 +90,7 @@ class IRC_Connection < EventMachine::Connection
     register
   end
 
+  # TODO: Make room for SASL.
   def register
     raw "PASS " + @password unless @password == nil
 
@@ -111,12 +112,19 @@ class IRC_Connection < EventMachine::Connection
       $bot.lines_in += 1
       $bot.bytes_in += line.length
 
-      received_line line.chomp
+      receive_line line.chomp
     end
   end
 
-  def received_line(line)
+  def receive_line(line)
     msg = Message.new(self, line.clone)
+
+    $bot.ignores.each do |ignore|
+      if msg.origin.wildcard_match(ignore)
+        $log.error("IRC.receive_line") { "Ignoring message from #{msg.origin}" }
+        return
+      end
+    end
 
     begin
 
@@ -129,8 +137,8 @@ class IRC_Connection < EventMachine::Connection
       end
 
     rescue => e
-      $log.error("IRC.read_thread") { "#{@name}: Uncaught error in message handler thread: #{e}" }
-      $log.error("IRC.read_thread") { "#{@name}: Backtrace: #{e.backtrace}" }
+      $log.error("IRC.receive_line") { "#{@name}: Uncaught error in message handler thread: #{e}" }
+      $log.error("IRC.receive_line") { "#{@name}: Backtrace: #{e.backtrace}" }
     end
 
   end
@@ -144,7 +152,7 @@ class IRC_Connection < EventMachine::Connection
 
   # Add an unedited string to the outgoing queue for later sending.
   def raw(str)
-    $log.debug("IRC.send") { "Queued #{str}" }
+    $log.debug("IRC.raw") { "Queued #{str}" }
 
     $bot.events.run(:raw_out, Message.new(self, str, true))
 
@@ -159,6 +167,8 @@ class IRC_Connection < EventMachine::Connection
     @disconnecting = true
 
     raw "QUIT :" + quit_message
+
+    close
   end
 
   # Empty the queue and then reconnect.

@@ -37,8 +37,10 @@ def on_privmsg(msg)
 
   chan = msg.connection.channels[msg.destination]
 
+  # TODO: This is going to fail for nicks that end with punctuation. Do it a
+  # different way.
   msg.text.split(" ").each do |word|
-    word.sub!(/[,:.;]+\Z/, "")
+    word.sub!(/[[:punct:]]*\Z/, "")
 
     if chan.get_user(word)
       check_away(msg, word)
@@ -70,7 +72,7 @@ def on_away(msg)
                                   # with duplicate reports (that can happen
                                   # due to an unrelated bug).
 
-  msg.raw("PRIVMSG #{dat[1]} :\02#{msg.raw_arr[3]} is away:\02 #{msg.text}")
+  msg.send_privmsg(dat[1], "\02#{msg.raw_arr[3]} is away:\02 #{msg.text}")
 end
 
 # End of WHOIS! If we have a pending request for this nick, remove it.

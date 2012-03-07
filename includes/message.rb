@@ -125,9 +125,7 @@ class Message
 
       next if s.length != 2
 
-      if s[0] == @connection.name and s[1] == @destination
-        return true
-      end
+      return true if s[0] == @connection.name and s[1] == @destination
     end
 
     return false
@@ -151,6 +149,10 @@ class Message
     end
 
     return message
+  end
+
+  def send_privmsg(target, str)
+    raw("PRIVMSG #{target} :#{str}")
   end
 
   def send_notice(target, str)

@@ -23,7 +23,7 @@ DATA_DIR = "var/terminus-bot/"
 
 class Bot
 
-  attr_accessor :connections, :lines_out, :lines_in, :bytes_out, :bytes_in
+  attr_accessor :connections, :lines_out, :lines_in, :bytes_out, :bytes_in, :ignores
   attr_reader :config, :events, :database, :commands, :script_info, :scripts
 
   Command = Struct.new(:owner, :cmd, :func, :argc, :level, :help)
@@ -51,6 +51,8 @@ class Bot
     @events = Events.new          # We're event-driven. See includes/event.rb
 
     @scripts = Scripts.new        # For those things in the scripts dir.
+
+    @ignores = Array.new          # Array of ignored hostmasks.
 
     @lines_out = 0                # Lines of text received by the bot.
     @lines_in = 0                 # Lines of text sent by the bot.
@@ -81,6 +83,12 @@ class Bot
 
     # The only event we care about in the core.
     @events.create(self, "PRIVMSG", :run_commands)
+
+    unless @database.has_key? :ignores
+      @database[:ignores] = @ignores
+    else
+      @ignores = @database[:ignores]
+    end
 
     # Since we made it this far, go ahead and be ready for signals.
     trap("INT")  { quit("Interrupted by host system. Exiting!") }
@@ -153,7 +161,7 @@ class Bot
   end
 
   # Fired on PRIVMSGs.
-  # Iterate through @commands and run everything that needs to be run.
+  # If we have a matching command in @commands, try to run it.
   def run_commands(msg)
     return if msg.silent?
 
@@ -198,6 +206,7 @@ class Bot
   end
 
   # Send QUITs and do any other work that needs to be done before exiting.
+  # TODO: This is broken and results in an unclean disconnection.
   def quit(str = "Terminus-Bot: Terminating")
     @connections.each_value do |connection|
       connection.disconnect(str)
@@ -208,16 +217,23 @@ class Bot
     $log.debug("Bot.quit") { "Removing PID file #{PID_FILE}" }
     File.delete(PID_FILE) if File.exists? PID_FILE
 
-    exit
+    try_exit
+  end
+
+  # Keep running until we've cleanly closed all connections.
+  def try_exit
+    if EM.connection_count == 0
+      EM.stop_event_loop
+    else
+      EM.add_timer(1) { try_exit }
+    end
   end
 
   # Register a command. See the Commands struct for the args.
   def register_command(owner, cmd, func, argc, level, help)
     $log.debug("Bot.register_command") { "Registering command." }
 
-    if @commands.has_key? cmd
-      throw "Duplicate command registration: #{cmd}"
-    end
+    throw "Duplicate command registration: #{cmd}" if @commands.has_key? cmd
 
     @commands[cmd] = Command.new(owner, cmd, func, argc, level, help)
   end

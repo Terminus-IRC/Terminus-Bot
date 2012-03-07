@@ -17,12 +17,11 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-
 def initialize
-  register_script("Show corrected text with s/regex/replacement/ is used.")
+  register_script("Show corrected text with s/regex/replacement/ is used and allow searching with g/regex/.")
 
   register_event("PRIVMSG", :on_privmsg)
-  register_event("PART", :on_part)
+  register_event("PART",    :on_part)
 
   @messages = Hash.new
 end
@@ -37,18 +36,27 @@ end
 def on_privmsg(msg)
   return if msg.private? or msg.silent?
 
-  if msg.text =~ /\Ag\/(.+)\/\Z/
+  if msg.text =~ /\Ag\/(.+)\/(.*)\Z/
     return unless @messages.has_key? msg.connection.name
     return unless @messages[msg.connection.name].has_key? msg.destination
 
-    search = Regexp.new($1.gsub(/\s/, '\s'), Regexp::EXTENDED)
+    search, flags, opts = $1, $2, Regexp::EXTENDED
+
+    opts |= Regexp::IGNORECASE if flags.include? "i"
+
+    search = Regexp.new($1.gsub(/\s/, '\s'), opts)
 
     $log.debug("regex.on_privmsg") { "Grep: " + search.to_s }
 
     @messages[msg.connection.name][msg.destination].reverse.each do |message|
       if search.match(message[1])
 
-        msg.reply("<#{message[0]}> #{message[1]}", false)
+        if message[2]
+          msg.reply("* #{message[0]} #{newmsg}", false)
+        else
+          msg.reply("<#{message[0]}> #{newmsg}", false)
+        end
+
         return
       end
     end
@@ -57,10 +65,11 @@ def on_privmsg(msg)
   elsif msg.text =~ /\As\/(.+)\/(.*)\/(.*)\Z/
     return unless @messages.has_key? msg.connection.name
     return unless @messages[msg.connection.name].has_key? msg.destination
-    flags = $3
-    replace = $2
+    replace, flags, opts = $2, $3, Regexp::EXTENDED
 
-    search = Regexp.new($1.gsub(/\s/, '\s'), Regexp::EXTENDED)
+    opts |= Regexp::IGNORECASE if flags.include? "i"
+
+    search = Regexp.new($1.gsub(/\s/, '\s'), opts)
 
     $log.debug("regex.on_privmsg") { "Substitute: " + search.to_s }
 
@@ -68,7 +77,12 @@ def on_privmsg(msg)
       if search.match(message[1])
         newmsg = (flags.include?("g") ? message[1].gsub(search, replace) : message[1].sub(search, replace) )
 
-        msg.reply("<#{message[0]}> #{newmsg}", false)
+        if message[2]
+          msg.reply("* #{message[0]} #{newmsg}", false)
+        else
+          msg.reply("<#{message[0]}> #{newmsg}", false)
+        end
+
         return
       end
     end
@@ -76,19 +90,17 @@ def on_privmsg(msg)
     return
   end
 
-  unless @messages.has_key? msg.connection.name
-    @messages[msg.connection.name] = Hash.new
-  end
 
-  unless @messages[msg.connection.name].has_key? msg.destination
-    @messages[msg.connection.name][msg.destination] = Array.new
-  end
+  @messages[msg.connection.name] ||= Hash.new
+  @messages[msg.connection.name][msg.destination] ||= Array.new
+
 
   if msg.text =~ /\01ACTION (.+)\01/
-    @messages[msg.connection.name][msg.destination] << [msg.nick, $1]
+    @messages[msg.connection.name][msg.destination] << [msg.nick, $1,       true]
   else
-    @messages[msg.connection.name][msg.destination] << [msg.nick, msg.text]
+    @messages[msg.connection.name][msg.destination] << [msg.nick, msg.text, false]
   end
+
 
   if @messages[msg.connection.name][msg.destination].length > 500
     @messages[msg.connection.name][msg.destination].shift

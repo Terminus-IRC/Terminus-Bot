@@ -1,7 +1,6 @@
-
 #
 # Terminus-Bot: An IRC bot to solve all of the problems with IRC bots.
-# Copyright (C) 2012 Terminus-Bot Development Team
+# Copyright (C) 2011 Terminus-Bot Development Team
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -17,13 +16,19 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-def initialize
-  register_script("Show bot uptime and usage information.")
+class String
 
-  register_command("uptime", :cmd_uptime,  0,  0, "Show how long the bot has been active.")
-end
+  def wildcard_match(s)
+   
+    # Since this is primarily going to be used for hostmask matches, we should
+    # escape these so that character classes aren't used, as that might
+    # produce unexpected results.
+    s.gsub!(/([\[\]])/, '\\\\\1')
 
-def cmd_uptime(msg, params)
-  since = File.ctime(PID_FILE).to_duration_s
-  msg.reply("I was started #{since} ago. \02In:\02 #{$bot.lines_in} lines (#{sprintf("%.4f", $bot.bytes_in / 1024.0)} KiB) \02Out:\02 #{$bot.lines_out} lines (#{sprintf("%.4f", $bot.bytes_out / 1024.0)} KiB)")
+    # Wildcard matches can be done with fnmatch, a globbing function. This
+    # doesn't touch the filesystem.
+    File.fnmatch(s, self)
+
+  end
+
 end
