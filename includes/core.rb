@@ -61,8 +61,8 @@ class Bot
     @bytes_out = 0                # Bytes received by the bot.
     @bytes_in = 0                 # Bytes sent by the bot.
 
-    logsize = @config['core']['logsize'].to_i rescue 1024000 
-    logcount = @config['core']['logcount'].to_i rescue 5
+    logsize = @config['core']['logsize'] rescue 1024000 
+    logcount = @config['core']['logcount'] rescue 5
     loglevel = @config['core']['loglevel'].upcase rescue "INFO"
 
     $log.close
@@ -97,7 +97,7 @@ class Bot
     trap("TERM") { quit("Terminated by host system. Exiting!") }
     trap("KILL") { exit }
     
-    trap("HUP", $bot.config.read_config ) # Rehash on HUP!
+    trap("HUP") { $bot.config.read_config } # Rehash on HUP!
     
     # Try to exit cleanly if we have to.
     at_exit { quit }
@@ -105,15 +105,13 @@ class Bot
     Dir.mkdir("var") unless Dir.exists? "var"
     Dir.mkdir(DATA_DIR) unless Dir.exists? DATA_DIR
 
-    EM.run do
-      EM.error_handler { |e|
-        $log.error("EM.error_handler") { e.to_s }
-        $log.error("EM.error_handler") { e.backtrace }
-      }
+    EM.error_handler { |e|
+      $log.error("EM.error_handler") { e.to_s }
+      $log.error("EM.error_handler") { e.backtrace }
+    }
 
-      # Begin connecting
-      start_connections
-    end
+    # Begin connecting
+    start_connections
   end
 
   # Iterate through configured connections and connect to servers we should
@@ -124,29 +122,27 @@ class Bot
     # Keep a list of configured servers for later.
     servers = Array.new
 
-    @config['core']['servers'].split(" ").each do |server_config|
-      server_config = server_config.split(":")
+    @config['servers'].each_pair do |server_name, server_config|
+      $log.debug("Bot.start_connections") { "Working on server config for #{server_name}" }
 
-      $log.debug("Bot.start_connections") { "Working on server config for #{server_config[0]}" }
+      servers << server_name
 
-      servers << server_config[0]
-
-      if @connections.has_key? server_config[0]
-        $log.info("Bot.start_connections") { "Skipping existing connection #{server_config[0]}" }
+      if @connections.has_key? server_name
+        $log.info("Bot.start_connections") { "Skipping existing connection #{server_name}" }
         next
       end
 
       if config["core"]["bind"] != nil
         EM.bind_connect(config["core"]["bind"], rand(64511)+1024,
-                        server_config[1], server_config[2], IRC_Connection,
-                        server_config[0], server_config[1], 
-                        server_config[2], server_config[3], config['core']['bind'],
-                        config['core']['nick'], config['core']['user'], config['core']['realname'])
+                        server_config["address"], server_config["port"], IRC_Connection,
+                        server_name, server_config,
+                        config['core']['bind'], config['core']['nick'],
+                        config['core']['user'], config['core']['realname'])
       else
-        EM.connect(server_config[1], server_config[2], IRC_Connection,
-                   server_config[0], server_config[1], 
-                   server_config[2], server_config[3], config['core']['bind'],
-                   config['core']['nick'], config['core']['user'], config['core']['realname'])
+        EM.connect(server_config["address"], server_config["port"], IRC_Connection,
+                   server_name, server_config,
+                   config['core']['bind'], config['core']['nick'],
+                   config['core']['user'], config['core']['realname'])
       end
 
     end
