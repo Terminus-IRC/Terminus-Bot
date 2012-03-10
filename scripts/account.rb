@@ -29,6 +29,7 @@ def initialize()
   register_command("fpassword", :cmd_fpassword, 2, 8,  "Change another user's bot account password. Parameters: username password")
   register_command("level",     :cmd_level,     2, 10, "Change a user's account level. Parameters: username level")
   register_command("account",   :cmd_account,   1,  5, "Display information about a user. Parameters: username")
+  register_command("whoami",    :cmd_whoami,    0,  0, "Display your current user information if you are logged in.")
 end
 
 def verify_password(stored, password)
@@ -62,10 +63,19 @@ def cmd_identify(msg, params)
   end
 
   msg.connection.users[msg.nick].account = params[0]
-  msg.connection.users[msg.nick].level = stored[:level]
 
-  msg.reply("Logged in with level #{stored[:level]} authorization.")
-  $log.info("account.cmd_identify") { "#{msg.origin} identified as #{params[0]} (#{stored[:level]})" }
+  level = stored[:level]
+
+  if $bot.config["admins"].has_key? params[0]
+    level = $bot.config["admins"][params[0]]
+
+    $log.info("account.cmd_identify") { "#{msg.origin} identifying with override level #{level}" }
+  end
+    
+  msg.connection.users[msg.nick].level = level
+
+  msg.reply("Logged in with level #{level} authorization.")
+  $log.info("account.cmd_identify") { "#{msg.origin} identified as #{params[0]} (#{level})" }
 end
 
 def cmd_register(msg, params)
@@ -104,7 +114,7 @@ def cmd_password(msg, params)
   end
 
   stored[:password] = encrypt_password(params[0])
-  save_data(msg.connection.users[msg.nick].account, stored)
+  store_data(msg.connection.users[msg.nick].account, stored)
 
   msg.reply("Your password has been changed")
   $log.info("account.cmd_password") { "#{msg.origin} changed account password" }
@@ -124,7 +134,7 @@ def cmd_fpassword(msg, params)
   end
 
   stored[:password] = encrypt_password(params[0])
-  save_data(msg.connection.users[msg.nick].account, stored)
+  store_data(msg.connection.users[msg.nick].account, stored)
 
   msg.reply("The account password has been changed")
   $log.info("account.cmd_fpassword") { "#{msg.origin} changed account password for #{params[0]}" }
@@ -171,5 +181,16 @@ def cmd_account(msg, params)
     return
   end
 
-  msg.reply("Account #{params[0]} level: #{stored[:level]}")
+  msg.reply("\02Account:\02 #{params[0]} \02Level:\02 #{stored[:level]}")
 end
+
+def cmd_whoami(msg, params)
+  if msg.connection.users[msg.nick].account == nil
+    msg.reply("You are not logged in.")
+    return
+  end
+
+  u = msg.connection.users[msg.nick]
+  msg.reply("\02Account:\02 #{u.account} \02Level:\02 #{u.level}")
+end
+
