@@ -22,7 +22,7 @@ class IRC_Connection < EventMachine::Connection
   require 'socket'
   require 'timeout'
 
-  attr_reader :name, :channels, ,:conf, :bind,
+  attr_reader :name, :channels, :conf, :bind,
    :users, :client_host, :nick, :user, :realname
 
   # Create a new connection, then kick things off.
@@ -164,7 +164,8 @@ class IRC_Connection < EventMachine::Connection
     $bot.events.run(:raw_out, Message.new(self, str, true))
 
     @send_queue.push(str)
-    return str
+    
+    str
   end
 
   # Send a QUIT with optional messsage. Handling the closing socket
@@ -333,6 +334,7 @@ class IRC_Connection < EventMachine::Connection
     end
 
     @nick << "_"
+
     raw "NICK #{@nick}"
   end
 
