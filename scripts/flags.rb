@@ -20,99 +20,58 @@
 
 
 def initialize
-  register_script("Modify and query the script flag table")
+  register_script("Modify and query the script flag table.")
 
-  register_command("enable", :cmd_enable, 2, 4, "Enable matching channel/script pairs. Args: [server:channel mask] [script mask]")
-  register_command("disable", :cmd_disable, 2, 4, "Disable matching channel/script pairs. Args: [server:channel mask] [script mask]")
-
-  register_command("flags", :cmd_flags, 2, 0, "View flags for a particular mask.")
+  register_command("enable",  :cmd_enable,  3, 4, "Enable scripts in the given server and channel. Wildcards are supported. Parameters: server channel scripts")
+  register_command("disable", :cmd_disable, 3, 4, "Disable scripts in the given server and channel. Wildcards are supported. Parameters: server channel scripts")
+  register_command("flags",   :cmd_flags,   3, 0, "View flags for the given servers, channels, and scripts. Wildcards are supported. Parameters: server channel scripts")
 end
 
 
 def cmd_enable(msg, params)
-  count = 0
+  enabled = $bot.flags.enable(params[0], params[1], params[2])
 
-  $bot.flags.each_value!(params[0], params[1]) do |value|
-    count += 1 unless value
-    true
-  end
-
-  msg.reply("Changed \02#{count}\02 entries to \02enabled\02")
+  msg.reply("Enabled \02#{enabled}\02.")
 end
 
 
 def cmd_disable(msg, params)
-  count = 0
-  warnreject = false
+  enabled = $bot.flags.disable(params[0], params[1], params[2])
 
-  privileged = get_config("privileged", "").split(/,/)
-  privileged.map! { |name| $bot.flags.scripts[name] }
-
-  $bot.flags.each_pair!(params[0], params[1]) do |row, col, value|
-    if privileged.include? col
-      warnreject = true
-      true
-    else
-      count += 1 if value
-      false
-    end
-  end
-
-  reply = "Changed \02#{count}\02 entries to \02disabled\02"
-  reply << " (Attempt to disable a privileged script rejected)" if warnreject
-  msg.reply(reply)
+  msg.reply("Disabled \02#{enabled}\02.")
 end
 
 
 def cmd_flags(msg, params)
-  # Allocating four arrays, something doesn't seem right....
-  trues = Array.new
-  falses = Array.new
-  rows = Array.new
-  cols = Array.new
+  enabled, disabled, default = [], [], []
 
-  $bot.flags.each_pair(params[0], params[1]) do |row, col, value|
-    rows << row unless rows.include? row
-    cols << col unless cols.include? col
-    if value
-      trues << [row, col]
-    else
-      falses << [row, col]
+  $bot.flags.each_pair do |server, channels|
+    next unless server.wildcard_match(params[0])
+
+    channels.each_pair do |channel, scripts|
+      next unless channel.wildcard_match(params[1])
+      
+      scripts.each_pair do |script, flag|
+        next unless script.wildcard_match(params[2])
+
+        case flag
+        when -1
+          disabled << script
+        when 1
+          enabled << script
+        else
+          default << script
+        end
+
+      end
     end
   end
 
+  buf = ""
+  buf << "\02Enabled (#{enabled.length}):\02 #{enabled.join(", ")}" unless enabled.empty?
+  buf << " \02Disabled (#{disabled.length}):\02 #{disabled.join(", ")}" unless disabled.empty?
+  buf << " \02Default (#{default.length}):\02 #{default.join(", ")}" unless default.empty?
 
-  if trues.length == 0 and falses.length == 0
-    msg.reply("That mask produced no matches")
-
-  elsif trues.length == 0
-    msg.reply("All matches are \02disabled\02")
-  elsif falses.length == 0
-    msg.reply("All matches are \02enabled\02")
-
-  elsif rows.length == 1
-    truecol = trues.map { |item| $bot.flags.script_name(item[1]) }
-    falsecol = falses.map { |item| $bot.flags.script_name(item[1]) }
-
-    if trues.length < falses.length
-      msg.reply("Enabled scripts in \02#{rows[0].join(':')}\02 are #{truecol.join(', ')}")
-    else
-      msg.reply("Disabled scripts in \02#{rows[0].join(':')}\02 are #{falsecol.join(', ')}")
-    end
-
-  elsif cols.length == 1
-    truerow = trues.map { |item| item[0].join(':') }
-    falserow = falses.map { |item| item[0].join(':') }
-    script = $bot.flags.script_name(cols[0])
-
-    if trues.length < falses.length
-      msg.reply("Enabled channels for \02#{}\02 are #{truerow.join(', ')}")
-    else
-      msg.reply("Disabled channels for \02#{}\02 are #{falserow.join(', ')}")
-    end
-
-  else
-    msg.reply("There are \02#{trues.length} enabled\02 and \02#{falses.length} disabled\02 entries")
-  end
+  msg.reply(buf.empty? ? "No flags set." : buf)
 end
       

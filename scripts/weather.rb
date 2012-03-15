@@ -21,13 +21,14 @@
 require "uri"
 require 'net/http'
 require 'rexml/document'
+require 'htmlentities'
 
 def initialize
   register_script("Weather information look-ups via Weather Underground (wunderground.com).")
 
   register_command("weather",   :weather,  1,  0, "View current conditions for the specified location.")
   register_command("temp",      :temp,     1,  0, "View current temperature for the specified location.")
-  register_command("forecast",  :forecast, 1,  0, "View a short-term forecase for the specified location.")
+  register_command("forecast",  :forecast, 1,  0, "View a short-term forecast for the specified location.")
 end
 
 def weather(msg, params)
@@ -109,8 +110,11 @@ def forecast(msg, params)
 
   root.elements.each("forecastday") { |element|
     title = element.elements["title"].text
+
     text = element.elements["fcttext"].text
-    reply += "[\02#{title}\02] #{text} "
+    text = HTMLEntities.new.decode(text)
+
+    reply << "[\02#{title}\02] #{text} "
   }
 
   msg.reply(reply)

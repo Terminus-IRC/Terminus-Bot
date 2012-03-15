@@ -52,6 +52,16 @@ class Bot
 
     @events = Events.new          # We're event-driven. See includes/event.rb
 
+    @flags = Script_Flags.new     # Table of booleans to enable or disable scripts per-channel.
+
+    # We need to do this now so that the database can be populated when 
+    # @scripts is initialized.
+    unless @database.has_key? :flags
+      @database[:flags] = @flags
+    else
+      @flags = @database[:flags]
+    end
+
     @scripts = Scripts.new        # For those things in the scripts dir.
 
     @ignores = Array.new          # Array of ignored hostmasks.
@@ -83,25 +93,16 @@ class Bot
       $log.level = Logger::INFO
     end
 
+
     # The only event we care about in the core.
     @events.create(self, "PRIVMSG", :run_commands)
 
+
+    # Plug the database into things.
     unless @database.has_key? :ignores
       @database[:ignores] = @ignores
     else
       @ignores = @database[:ignores]
-    end
-
-    if @database.has_key? :flags
-      # This makes a lot of assumptions about what will be in
-      # @database[:flags], but if everything goes as planned (i.e. no
-      # user tampering with data.db) then this should be left alone
-      @flags.scripts = @database[:flags][:scripts]
-      @flags.table = @database[:flags][:table]
-    else
-      @database[:flags] = Hash.new
-      @database[:flags][:scripts] = @flags.scripts
-      @database[:flags][:table] = @flags.table
     end
 
     # Since we made it this far, go ahead and be ready for signals.
@@ -109,7 +110,7 @@ class Bot
     trap("TERM") { quit("Terminated by host system. Exiting!") }
     trap("KILL") { exit }
     
-    trap("HUP") { $bot.config.read_config } # Rehash on HUP!
+    trap("HUP")  { $bot.config.read_config } # Rehash on HUP!
     
     # Try to exit cleanly if we have to.
     at_exit { quit }
@@ -204,7 +205,7 @@ class Bot
     $log.debug("Bot.run_commands") { "Match for command #{$2} in #{command.owner}" }
 
     begin
-      command.owner.send(command.func, msg, params) if permit_message(command.owner, msg)
+      command.owner.send(command.func, msg, params) if permit_message?(command.owner, msg)
     rescue => e
       $log.error("Bot.run_commands") { "Problem running command #{$2} in #{command.owner}: #{e}" }
       $log.debug("Bot.run_commands") { "Problem running command #{$2} in #{command.owner}: #{e.backtrace}" }
@@ -215,17 +216,14 @@ class Bot
 
   # Determine whether the given event should be sent or not, based on
   # the event itself and on the contents of the message
-  def permit_message(owner, msg)
+  def permit_message?(owner, msg)
     return true unless owner.is_a? Script
 
-    server = msg.connection.name
-    chan = msg.destination
-    name = owner.my_short_name
+    server  = msg.connection.name
+    channel = msg.destination
+    name    = owner.my_short_name
 
-    fetch = @flags.fetch(server, chan, name)
-    fetch = true if fetch == nil
-
-    return fetch
+    @flags.enabled?(server, channel, name)
   end
 
   # Send QUITs and do any other work that needs to be done before exiting.
@@ -265,7 +263,11 @@ class Bot
   def register_script(*args)
     $log.debug("Bot.register_script") { "Registering script." }
 
-    @script_info << Script_Info.new(*args)
+    script = Script_Info.new(*args)
+
+    @script_info << script
+    @flags.add_script(script.name)
+    
     @script_info.sort_by! {|s| s.name}
 
     # I feel like I shouldn't know the contents of args...
