@@ -43,8 +43,6 @@ class Bot
 
     @database = Database.new      # Scripts can store data here.
 
-    @flags = FlagTable.new(true)  # Filtering events by source and destination
-
     @commands = Hash.new          # An hash table of Commands (see the above Struct).
                                   # These are fired like events.
     
