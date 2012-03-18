@@ -43,7 +43,7 @@ class Time
     pieces.map! do |piece|
 
       unless piece[0] == 0
-        s = piece[0] == 1? "" : piece[2]
+        s = piece[0] == 1 ? "" : piece[2]
         piece[0].to_s << piece[1] << s
       end
 
@@ -71,7 +71,7 @@ class Time
 
       piece[0] += 1 if piece[1] > piece[2]
       unless piece[0] == 0
-        s = piece[0] == 1? "" : piece[4]
+        s = piece[0] == 1 ? "" : piece[4]
         "about " << piece[0].to_s << piece[3] << s
       end
 
