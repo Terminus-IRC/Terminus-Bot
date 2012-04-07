@@ -307,6 +307,8 @@ class IRC_Connection < EventMachine::Connection
   def on_registered(msg)
     return if msg.connection != self
 
+    @isupport = Hash.new
+
     @registered = true
   end
 
@@ -342,9 +344,6 @@ class IRC_Connection < EventMachine::Connection
   end
 
   def on_isupport(msg)
-
-    # Clear the hash, oops
-    @isupport = Hash.new
 
     # Limit iteration to everything between the nick and ":are supported
     # by this server"
