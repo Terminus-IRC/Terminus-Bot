@@ -35,6 +35,8 @@ class Bot
     # Dirty? A bit. TODO: Get rid of this. Maybe.
     $bot = self
 
+    # Gets rid of some junk that was being put int STDERR. Not sure if this is
+    # still necessary, but I'd rather not remove it.
     $-v = nil
 
     @connections = Hash.new       # IRC objects. Keys are configured names.
@@ -175,10 +177,8 @@ class Bot
     return if msg.silent?
 
     return unless msg.text =~ /\A#{msg.private? ?
-      '(' + @config['core']['prefix'] + ')?' :
-      '(' + @config['core']['prefix'] + ')'}([^ ]+)(.*)\Z/
-
-    $log.debug("Bot.run_commands") { "Running command #{$2} from #{msg.origin}" }
+      "(#{@config['core']['prefix']})?" :
+      "(#{@config['core']['prefix']})"}([^ ]+)(.*)\Z/
 
     return unless @commands.has_key? $2
 
@@ -228,7 +228,6 @@ class Bot
   end
 
   # Send QUITs and do any other work that needs to be done before exiting.
-  # TODO: This is broken and results in an unclean disconnection.
   def quit(str = "Terminus-Bot: Terminating")
     @connections.each_value do |connection|
       connection.disconnect(str)

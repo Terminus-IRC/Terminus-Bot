@@ -102,14 +102,14 @@ class IRC_Connection < EventMachine::Connection
 
   # TODO: Make room for SASL.
   def register
-    raw "PASS " + @conf["password"] if @conf.has_key? "password"
+    raw "PASS #{@conf["password"]}" if @conf.has_key? "password"
 
-    raw "NICK " + @nick
-    raw "USER #{@user} 0 0 :" + @realname
+    raw "NICK #{@nick}"
+    raw "USER #{@user} 0 0 :#{@realname}"
   end
 
   def send_data(data)
-    super(data + "\r\n")
+    super(data << "\n")
 
     $bot.lines_out += 1
     $bot.bytes_out += data.length + 2
@@ -162,6 +162,8 @@ class IRC_Connection < EventMachine::Connection
 
   # Add an unedited string to the outgoing queue for later sending.
   def raw(str)
+    str.delete! "\r\n"
+
     $log.debug("IRC.raw") { "Queued #{str}" }
 
     $bot.events.run(:raw_out, Message.new(self, str, true))
@@ -198,7 +200,7 @@ class IRC_Connection < EventMachine::Connection
 
     EM.add_timer(5) {
       @disconnecting = false
-      super(@conf["host"], @conf["port"])
+      super(@conf["address"], @conf["port"])
       register
     }
   end
@@ -241,11 +243,11 @@ class IRC_Connection < EventMachine::Connection
     end
 
     if msg.me?
-      msg.raw('MODE ' + msg.destination)
-      msg.raw('WHO ' + msg.destination)
+      msg.raw("MODE #{msg.destination}")
+      msg.raw("WHO #{msg.destination}")
     end
 
-    @channels[msg.destination].join(ChannelUser.new(msg.nickcanon, msg.user, msg.host))
+    @channels[msg.destination].join(ChannelUser.new(msg.nick_canon, msg.user, msg.host))
   end
 
   def on_part(msg)
@@ -258,7 +260,7 @@ class IRC_Connection < EventMachine::Connection
       return
     end
 
-    @channels[msg.destination].part(msg.nickcanon)
+    @channels[msg.destination].part(msg.nick_canon)
   end
 
   def on_kick(msg)
@@ -321,10 +323,10 @@ class IRC_Connection < EventMachine::Connection
   # We tried to switch to a nick that's in use.
   def on_nick_in_use(msg)
 
-
     # If we're done connecting, then this is happening because
     # someone tried to have the bot change nicks to something taken.
     # No sense in spinning around on it — just keep our current nick.
+    
     return if @registered or msg.connection != self
 
     if @nick == $bot.config['core']['nick']
@@ -348,7 +350,7 @@ class IRC_Connection < EventMachine::Connection
     # Limit iteration to everything between the nick and ":are supported
     # by this server"
     msg.raw_arr[3...-5].each do |arg|
-      key, s, value = arg.partition(/=/)
+      key, value = arg.split('=', 2)
 
       @isupport[key] = value
     end
@@ -376,12 +378,13 @@ class IRC_Connection < EventMachine::Connection
   end
 
   # retrieve ISUPPORT values or default to a value we don't have
-  def support(param, default=nil)
+  def support(param, default = nil)
     return default unless @isupport.has_key? param.upcase
-    return @isupport[param.upcase]
+    
+    @isupport[param.upcase]
   end
 
   def to_s
-    return "#{@name} (#{@channels.length} channels)"
+    "#{@name} (#{@channels.length} channels)"
   end
 end

@@ -17,9 +17,6 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-# TODO: Reimplement without all this confusing table/index stuff that doesn't
-# actually save us any memory with such small amounts of data.
-
 class Script_Flags < Hash
 
   def initialize
@@ -106,8 +103,6 @@ class Script_Flags < Hash
           next if privileged.include? script and flag == -1
 
           if channel_scripts[script] != flag
-            $log.debug("script_flags.set_flags") { "#{script} -> #{flag}" }
-
             channel_scripts[script] = flag
             count += 1
           end

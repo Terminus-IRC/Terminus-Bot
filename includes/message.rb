@@ -19,14 +19,13 @@
 
 class Message
   attr_reader :origin, :destination, :type, :text, :raw, :raw_arr,
-    :nick, :nickcanon, :user, :host, :connection
+    :nick, :nick_canon, :user, :host, :connection
 
   # Parse the str as an IRC message and fire appropriate events.
   def initialize(connection, str, outgoing = false)
 
     arr = str.split
 
-    @stripped = ""
     @raw, @raw_arr = str, arr
     @connection = connection
 
@@ -37,13 +36,14 @@ class Message
       @nick = connection.nick
       @user = connection.user
       @host = connection.client_host
+      @nick_canon = @connection.canonize @nick
       
       @origin = "#{@nick}!#{@user}@#{@host}"
 
       @type = arr[0]
       @destination = arr[1]
       
-      @text = (str =~ /\A.+\s:(.+)\Z/ ? $1 : "")
+      @text = (str =~ /\A([^ ]+\s){1,2}:(.+)\Z/ ? $2 : "")
 
     else
 
@@ -56,13 +56,15 @@ class Message
 
         if @origin =~ /\A([^ ]+)!([^ ]+)@([^ ]+)/
           @nick, @user, @host = $1, $2, $3
+          @nick_canon = @connection.canonize @nick
         else
           @nick, @user, @host = "", "", ""
+          @nick_canon = ""
         end
 
         # Grab the text portion, as in
         # :origin PRIVMSG #dest :THIS TEXT
-        @text = (str =~ /\A:.+\s:(.+)\Z/ ? $1 : "")
+        @text = (str =~ /\A:[^ ]+(\s[^ ]+){0,2}\s:(.+)\Z/ ? $2 : "")
 
       else
         # Server PINGs. Not much else.
@@ -75,8 +77,6 @@ class Message
       end
 
     end
-
-    @nickcanon = @connection.canonize @nick rescue nil
       
   end
 
@@ -105,7 +105,7 @@ class Message
     #       Just don't try to send it all in multiple messages without
     #       the user asking for it!
     unless self.private?
-      str = "PRIVMSG #{@destination} :#{prefix ? @nick + ": " : ""}#{truncate(str, @destination)}"
+      str = "PRIVMSG #{@destination} :#{prefix ? "#{@nick}: " : ""}#{truncate(str, @destination)}"
     else
       str = "NOTICE #{@nick} :#{truncate(str, @nick, true)}"
     end
@@ -165,7 +165,7 @@ class Message
 
   # Return true if this message's origin appears to be the bot.
   def me?
-    return @nickcanon == @connection.canonize(@connection.nick)
+    return @nick_canon == @connection.canonize(@connection.nick)
   end
 
   # Return true if this message doesn't appear to have been sent in a
@@ -188,9 +188,7 @@ class Message
 
   # Return the message with formatting stripped.
   def stripped
-    return @stripped unless @stripped.empty?
-
-    @stripped = strip(@text)
+    @stripped ||= strip(@text)
   end
 
   # Cheat mode for sending things to the owning connection. Useful for

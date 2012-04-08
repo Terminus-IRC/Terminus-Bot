@@ -104,8 +104,10 @@ end
 
 
 def attack_player(msg, target, weapon)
+  original = target
+  target = msg.connection.canonize target
   current = get_health(msg, target)
-  my_health = get_health(msg, msg.nick)
+  my_health = get_health(msg, msg.connection.canonize(msg.nick))
 
   if my_health == 0
     msg.reply("You cannot attack when dead.")
@@ -113,11 +115,15 @@ def attack_player(msg, target, weapon)
   end
 
   if current == 0
-    msg.reply("#{target} is already dead.", false)
+    msg.reply("#{original} is already dead.", false)
     return
   end
 
   damage = get_config("min_dmg", 5).to_i + rand(get_config("max_dmg", 25).to_i - get_config("min_dmg", 5).to_i)
+
+  if rand(100) <= get_config("absorb", 5).to_i
+    damage = damage * -1
+  end
 
   new = current - damage
   new = 0 if new < 0
@@ -126,24 +132,24 @@ def attack_player(msg, target, weapon)
 
   if rand(100) < get_config("miss", 10).to_i
 
-    msg.reply("#{target} dodges #{msg.nick}'s #{weapon}.", false)
+    msg.reply("#{original} dodges #{msg.nick}'s #{weapon}.", false)
 
   elsif damage > 0
 
-    msg.reply("#{msg.nick}'s #{weapon} hits #{target} for \02#{damage} damage\02.", false)
+    msg.reply("#{msg.nick}'s #{weapon} hits #{original} for \02#{damage} damage\02.", false)
 
     if new == 0
-      msg.reply("#{target} has been defeated!", false)
+      msg.reply("#{original} has been defeated!", false)
 
     else 
-      msg.reply("#{target} has \02#{new}\02 health remaining.", false)
+      msg.reply("#{original} has \02#{new}\02 health remaining.", false)
 
     end
 
   elsif damage < 0
 
-    msg.reply("#{target} absorbs the hit and \02gains #{(damage*-1)} health!\2", false)
-    msg.reply("#{target} has \02#{new}\02 health remaining.", false)
+    msg.reply("#{original} absorbs the hit and \02gains #{(damage*-1)} health!\2", false)
+    msg.reply("#{original} has \02#{new}\02 health remaining.", false)
 
   else
 
@@ -176,12 +182,14 @@ def cmd_heal(msg, params)
     return
   end
 
-  unless @active[msg.destination].include? params[0]
+  target = msg.connection.canonize params[0]
+
+  unless @active[msg.destination].include? target
     msg.reply("There is no player #{params[0]} that can be healed.")
     return
   end
 
-  heal_player(msg, params[0])
+  heal_player(msg, target)
   msg.reply("#{msg.nick} has healed \02#{params[0]}\02!", false)
   
 end
@@ -189,7 +197,7 @@ end
 def on_privmsg(msg)
   return if msg.private? or msg.silent? or not @active.has_key? msg.destination
 
-  if msg.text =~ /\01ACTION atta[^ ]+ (.*) with (.*)\01/
+  if msg.text =~ /\01ACTION atta[^ ]+ (.*?) with (.*)\01/i
     attack_player(msg, $1, $2)
   end
 
