@@ -52,6 +52,9 @@ end
 command 'seen', 'Check when the given user was last seen \02speaking\02 on IRC.' do
   argc! 1
 
+  #Ignore trailing whitespace that would otherwise cause "Rylai " to not match
+  @params[0] = @params[0].sub(/\s+\Z/, "")
+
   nick = @connection.canonize @params.first
 
   if @msg.nick_canon == nick
