@@ -34,6 +34,9 @@ unless FileTest.exists?("terminus-bot.conf")
   abort "No config file found."
 end
 
+require 'rubygems'
+require 'bundler/setup'
+
 VERSION  = "Terminus-Bot v0.8"
 PID_FILE = "var/terminus-bot.pid"
 LICENSE  = "MIT"
