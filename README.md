@@ -19,10 +19,8 @@ have encountered, as well as all of those everyone else tells us about.
 * gems (mandatory)
     * eventmachine
     * psych (included psych has UTF-8 bugs)
-* gems (for some scripts)
     * htmlentities
     * json
-    * psych 1.2.2
     * dnsruby (dns script)
     * em-http-request (http_client module and all scripts that use it)
     * em-whois (whois script)
