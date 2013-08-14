@@ -1,6 +1,6 @@
-# @title Getting Started
+# Getting Started
 
-# Getting Started with Terminus-Bot
+## Getting Started with Terminus-Bot
 
 Terminus-Bot is designed to be simple to use, but there are some important
 things to keep in mind when configuring it for the first time. This guide
