@@ -36,30 +36,18 @@ command 'dice', 'Roll dice.' do
 
   dice_strs = @params.first.scan /\S+/
 
-  if dice_strs.size > 5
-    raise 'You may not request more than 5 dice simulations at a time.'
-  end
+  raise 'You may not request more than 5 dice simulations at a time.' if dice_strs.size > 5
 
   # TODO: Streamline rolling dice and outputting for clarity
 
   results = []
-
-  i = 1
-  dice_strs.each do |dice_str|
-    rolls = roll_dice dice_str
-    sum = 0
-    rolls.each { |roll| sum += roll }
-    results << "Dice set #{i}: result: #{sum} dice: [#{rolls.join(', ')}]"
-    i = i + 1
-  end
-
+  dice_strs.each_with_index { |dice_str, i| results << "Dice set #{i + 1}: #{roll_dice dice_str}" }
   reply results.join(' ')
 end
 
 helpers do
   def roll_dice dice_str
     operators = Regexp.escape '+-*'
-
     raise 'Simulation format must be [count]d<sides>[k<keep>][+/-/*<modifier>]' if dice_str.match(/^(\d+)?d\d+(k\d+)?([#{operators}]\d+)*$/).nil?
 
     settings = Hash.new()
@@ -90,9 +78,8 @@ helpers do
       raise 'You must not choose to keep more dice than you have chosen to roll.' if settings[:keep] > settings[:count]
     end
 
-    rolls = []
-
     # Make the rolls
+    rolls = []
     settings[:count].times { rolls << rand(settings[:sides]) + 1 }
 
     # Remove lowest dice according to keep
@@ -100,14 +87,11 @@ helpers do
     settings[:keep] = rolls.size - settings[:keep] unless settings[:keep] == 0
     settings[:keep].times { rolls.delete_at rolls.index rolls.min }
 
-    # Add the modifier
-    rolls.collect! do |roll|
-      unless settings[:mod].nil?
-        mod = settings[:mod].match(/[\d#{operators}]*/)
-        eval(roll.to_s + mod.to_s).to_i
-      end
-    end
+    # Sum the roll and add the modifier
+    sum = rolls.reduce(:+)
+    mod = settings[:mod].match(/[\d#{operators}]*/)
+    total = eval(sum.to_s + mod.to_s).to_i
 
-    rolls
+    "result: #{total} dice: [#{rolls.join(', ')}]"
   end
 end
