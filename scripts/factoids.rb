@@ -31,6 +31,7 @@ command 'remember', 'Remember the given factoid. Should be in the form: ___ is|=
   arr = @params.first.split /\sis\s|\s=\s/, 2
   arr[0].downcase!
   
+  
   unless arr.length == 2
     raise "Factoid must be given in the form: ___ is|= ___"
   end
