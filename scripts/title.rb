@@ -38,6 +38,7 @@ url do
     # http://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags
 
     begin
+      maxTitleLength=150
       page = StringScanner.new http.response
 
       page.skip_until /<title[^>]*>/ix
@@ -47,6 +48,10 @@ url do
 
       title = title.match(/(?<title>.*)<\/title[^>]*>/)[:title]
       title = html_decode(title).gsub(/[[[:cntrl:]]\s]+/, ' ').strip
+      
+      if title.length > maxTitleLength
+        title = title[0 .. maxTitleLength-1]+"..."
+      end
 
       next if title.empty?
 
