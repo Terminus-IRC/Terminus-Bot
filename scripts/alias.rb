@@ -25,6 +25,22 @@
 
 register 'Manipulate command aliases.'
 
+event :em_started do
+  load_aliases
+end
+
+command 'restorealiases', 'Restore all aliases ever added' do
+  level! 10
+  load_aliases
+end
+
+command 'listaliases', 'List all of the aliases' do
+  level! 3
+  get_all_data.each do |(aliascommand, aliastarget)|
+    reply "#{aliascommand} - #{aliastarget}"
+  end
+end
+
 command 'alias', 'Manipulate the command alias list. Syntax: ADD alias target|DELETE alias' do
   level! 5 and argc! 2
 
@@ -32,16 +48,36 @@ command 'alias', 'Manipulate the command alias list. Syntax: ADD alias target|DE
   when 'add'
     argc! 3
 
-    Bot::Commands.create_alias @params[1], @params[2]
-
+    aliascommand = @params[1].downcase
+    aliastarget = @params[2].downcase
+    
+    Bot::Commands.create_alias aliascommand, aliastarget
+    store_data aliascommand, aliastarget
+    
     reply 'Alias created'
 
   when 'delete', 'del'
-    Bot::Commands.delete_alias @params[1]
-
+    
+    aliaskey = @params[1].downcase
+    Bot::Commands.delete_alias aliaskey
+    delete_data aliaskey 
+    
     reply 'Alias deleted.'
 
   end
 end
 
+helpers do
+
+  def load_aliases
+    get_all_data.each do |(aliascommand, aliastarget)|
+      begin  
+        Bot::Commands.create_alias aliascommand.dup, aliastarget.dup
+      rescue Exception => e  
+        reply e.message
+      end  
+    end
+  end
+  
+end
 # vim: set tabstop=2 expandtab:
