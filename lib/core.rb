@@ -92,6 +92,10 @@ module Bot
       $log.debug("Bot.run") { "New connection: #{name}" }
       $log.debug("Bot.run") { config.to_s }
 
+      if config[:address] == "LINKED_CONTAINER"
+        config[:address] = ENV["IRCD_PORT_6667_TCP_ADDR"]
+      end
+
       unless bind == nil or bind.empty?
         EM.bind_connect bind, nil, config[:address], config[:port], IRCConnection, name
       else
