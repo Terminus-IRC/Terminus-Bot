@@ -8,6 +8,8 @@
 
 # About the Bot
 
+[![Join the chat at https://gitter.im/Terminus-Project/Terminus-Bot](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Terminus-Project/Terminus-Bot?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Terminus-Bot is an IRC bot written in Ruby under the MIT license. Its purpose
 is to completely avoid the problems of other bots.
 
