@@ -1,0 +1,11 @@
+ircd:
+  image: xena/elemental-ircd:6.6.2
+  ports:
+    - "8067:6667"
+
+terminus-bot:
+  build: .
+  links:
+    - ircd
+  volumes:
+    - ./var:/var/lib/terminus-bot

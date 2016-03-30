@@ -58,6 +58,8 @@ a recommended way to run Terminus-Bot within Docker.
 
 ## Tips and Tricks
 
+### Dokku
+
 If you use Dokku (I do!), you can create the persistence volume on the host (`#
 mkdir /var/lib/terminus-bot-your-tag`) and mount it on the container
 automatically by adding `-v
@@ -65,3 +67,39 @@ automatically by adding `-v
 `~dokku/APPNAME/DOCKER_ARGS`, and then proceed as normal. This allows you to
 keep your Terminus-Bot configuration confidential as it does contain sensitive
 data such as network passwords.
+
+### Ephemeral test irc server using docker-compose
+
+You can set up an ephemeral test server by doing the following:
+
+```console
+$ mkdir var
+$ cp ./terminus-bot.conf.dist var/terminus-bot.conf
+```
+
+In the config, delete the server list add the following:
+
+```
+servers = {
+  localhost = {
+    address = LINKED_CONTAINER
+    port = 6667
+  }
+}
+```
+
+Then disable the `chanlog` script (causes issues for me) in the config and run
+the following:
+
+```console
+$ docker-compose build
+$ docker-compose up
+```
+
+This will download an image of [Elemental-IRCd](http://elemental-ircd.com) and
+have your terminus-bot branch run against it. You can connect to it by connecting
+to port 8067 on your local machine. For example with irssi:
+
+```console
+$ irssi -c 127.0.0.1 -p 8067
+```
